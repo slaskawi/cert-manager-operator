@@ -51,11 +51,14 @@ func init() {
 	utilruntime.Must(admissionregistrationv1.AddToScheme(genericScheme))
 }
 
+type StaticResourcesPreconditionFuncType func(ctx context.Context, files []string) (bool, error)
+
 type StaticResourceController struct {
 	name                   string
 	manifests              resourceapply.AssetFunc
 	files                  []string
 	ignoreNotFoundOnCreate bool
+	precondition           StaticResourcesPreconditionFuncType
 
 	operatorClient v1helpers.OperatorClient
 	clients        *resourceapply.ClientHolder
@@ -92,7 +95,7 @@ func NewStaticResourceController(
 
 		factory: factory.New().WithInformers(operatorClient.Informer()).ResyncEvery(1 * time.Minute),
 	}
-
+	c.precondition = c.defaultStaticResourcesPreconditionFunc
 	return c
 }
 
@@ -103,6 +106,12 @@ func NewStaticResourceController(
 // NotFound errors are reported in <name>Degraded condition, but with Degraded=false.
 func (c *StaticResourceController) WithIgnoreNotFoundOnCreate() *StaticResourceController {
 	c.ignoreNotFoundOnCreate = true
+	return c
+}
+
+// WithPreconfitionFunc adds a pre-condtion function, which is executed in the sync function.
+func (c *StaticResourceController) WithPreconfitionFunc(precondition StaticResourcesPreconditionFuncType) *StaticResourceController {
+	c.precondition = precondition
 	return c
 }
 
@@ -203,6 +212,28 @@ func (c *StaticResourceController) AddNamespaceInformer(informer cache.SharedInd
 }
 
 func (c StaticResourceController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
+	ready, err := c.precondition(ctx, c.files)
+	if err != nil {
+		if _, _, updateErr := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "ErrorCheckingPrecondition",
+			Message: err.Error(),
+		})); updateErr != nil {
+			return updateErr
+		}
+		return err
+	}
+	if !ready {
+		if _, _, updateErr := v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "PreconditionNotReady",
+			Message: "PreconditionNotReady",
+		})); updateErr != nil {
+			return updateErr
+		}
+		return err
+	}
+
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
 		return err
@@ -320,4 +351,8 @@ func (c *StaticResourceController) RelatedObjects() ([]configv1.ObjectReference,
 
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
 	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
+}
+
+func (c *StaticResourceController) defaultStaticResourcesPreconditionFunc(ctx context.Context, files []string) (bool, error) {
+	return true, nil
 }
