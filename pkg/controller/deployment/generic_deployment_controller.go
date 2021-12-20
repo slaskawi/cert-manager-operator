@@ -91,5 +91,5 @@ func (c *genericDeploymentController) Sync(ctx context.Context, syncContext fact
 }
 
 func (c *genericDeploymentController) PreconditionFulfilled(ctx context.Context) (bool, error) {
-	return true, nil
+	return GenericDeploymentControllerAdapterFunction(ctx)
 }

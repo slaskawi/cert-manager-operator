@@ -101,6 +101,8 @@ func RunOperator(ctx context.Context, cc *controllercmd.ControllerContext) error
 		cc.EventRecorder,
 	)
 
+	deployment.InitGlobalDeploymentChecker(kubeClient.AppsV1())
+
 	controllersToStart = append(controllersToStart, statusController)
 
 	for _, informer := range []interface{ Start(<-chan struct{}) }{

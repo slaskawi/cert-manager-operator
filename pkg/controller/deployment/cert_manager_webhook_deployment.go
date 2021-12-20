@@ -45,7 +45,7 @@ func NewCertManagerWebhookStaticResourcesController(operatorClient v1helpers.Ope
 		kubeClientContainer,
 		operatorClient,
 		eventsRecorder,
-	).AddKubeInformers(kubeInformersForTargetNamespace)
+	).WithPreconfitionFunc(StaticResourcesAdapterFunction).AddKubeInformers(kubeInformersForTargetNamespace)
 }
 
 func NewCertManagerWebhookDeploymentController(operatorClient v1helpers.OperatorClient,

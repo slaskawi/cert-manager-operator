@@ -43,7 +43,7 @@ func NewCertManagerCAInjectorStaticResourcesController(operatorClient v1helpers.
 		kubeClientContainer,
 		operatorClient,
 		eventsRecorder,
-	).AddKubeInformers(kubeInformersForTargetNamespace)
+	).WithPreconfitionFunc(StaticResourcesAdapterFunction).AddKubeInformers(kubeInformersForTargetNamespace)
 }
 
 func NewCertManagerCAInjectorDeploymentController(operatorClient v1helpers.OperatorClient,

@@ -66,7 +66,7 @@ func NewCertManagerControllerStaticResourcesController(operatorClient v1helpers.
 		kubeClientContainer,
 		operatorClient,
 		eventsRecorder,
-	).AddKubeInformers(kubeInformersForTargetNamespace)
+	).WithPreconfitionFunc(StaticResourcesAdapterFunction).AddKubeInformers(kubeInformersForTargetNamespace)
 }
 
 func NewCertManagerControllerDeploymentController(operatorClient v1helpers.OperatorClient,
